@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { playOverlaySound, stopOverlaySound, playStarSound } from '../../hooks/useJingle';
 
@@ -25,80 +25,133 @@ function Backdrop({ opacity = 0.55, color = '#000' }) {
 
 // ── 1. BALLOON overlay ────────────────────────────────────────────────────────
 function BalloonOverlay({ onDone }) {
-  // Three waves of balloons for dense coverage
-  const balloons = Array.from({ length: 28 }, (_, i) => ({
-    id: i,
-    x: rand(2, 96),
-    color: pick(BALLOON_COLORS),
-    size: rand(70, 130),
-    duration: rand(3.2, 5.5),
-    delay: rand(0, 2.2),
-    rot: rand(-20, 20),
-  }));
+  const balloons = useMemo(() => Array.from({ length: 28 }, (_, i) => {
+    const baseX = rand(4, 94);
+    const swayAmt = rand(3, 9);
+    return {
+      id: i,
+      x: baseX,
+      color: pick(BALLOON_COLORS),
+      size: rand(65, 135),
+      duration: rand(5, 8.5),
+      delay: rand(0, 2.8),
+      swayAmt,
+      swayFrames: [
+        `${baseX}vw`,
+        `${baseX + swayAmt}vw`,
+        `${baseX - swayAmt * 0.6}vw`,
+        `${baseX + swayAmt * 0.4}vw`,
+        `${baseX - swayAmt * 0.8}vw`,
+        `${baseX + swayAmt * 0.3}vw`,
+        `${baseX}vw`,
+      ],
+      rotFrames: (() => {
+        const r = rand(8, 18);
+        return [0, r, -r * 0.7, r * 0.5, -r * 0.3, r * 0.15, 0];
+      })(),
+      scaleFrames: [0.85, 1, 1.03, 0.98, 1.01, 1, 0.95],
+    };
+  }), []);
 
-  useEffect(() => { const t = setTimeout(onDone, 7000); return () => clearTimeout(t); }, [onDone]);
+  useEffect(() => { const t = setTimeout(onDone, 9500); return () => clearTimeout(t); }, [onDone]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
       <Backdrop opacity={0.45} />
 
       {balloons.map((b) => (
-        <div
+        <motion.div
           key={b.id}
-          className="absolute bottom-[-10px]"
-          style={{
-            left: `${b.x}%`,
-            '--duration': `${b.duration}s`,
-            '--balloon-rot': `${b.rot}deg`,
-            animationDelay: `${b.delay}s`,
-            zIndex: 1,
+          className="absolute"
+          style={{ bottom: -160, zIndex: 1 }}
+          initial={{ y: 0, x: `${b.x}vw`, opacity: 0, scale: 0.6 }}
+          animate={{
+            y: [0, '-115vh'],
+            x: b.swayFrames,
+            rotate: b.rotFrames,
+            scale: b.scaleFrames,
+            opacity: [0, 1, 1, 1, 1, 1, 0],
+          }}
+          transition={{
+            duration: b.duration,
+            delay: b.delay,
+            ease: [0.25, 0.1, 0.25, 1],
+            y: { duration: b.duration, ease: [0.16, 0.7, 0.35, 1] },
+            opacity: { times: [0, 0.06, 0.2, 0.6, 0.8, 0.92, 1], duration: b.duration },
           }}
         >
-          {/* Balloon body */}
-          <div
-            className="balloon relative"
+          <motion.div
+            className="relative"
+            animate={{ y: [0, -6, 0, 4, 0], rotate: [0, 1.5, 0, -1, 0] }}
+            transition={{ repeat: Infinity, duration: rand(2.5, 4), ease: 'easeInOut' }}
             style={{
               width: b.size,
               height: b.size * 1.25,
-              background: `radial-gradient(circle at 35% 35%, ${b.color}EE, ${b.color}88)`,
-              borderRadius: '50% 50% 48% 52% / 58% 58% 42% 42%',
-              boxShadow: `inset -10px -10px 25px rgba(0,0,0,0.18), 0 6px 20px rgba(0,0,0,0.2)`,
+              background: `radial-gradient(ellipse at 32% 30%, ${b.color}FF, ${b.color}CC 55%, ${b.color}88)`,
+              borderRadius: '50% 50% 48% 52% / 60% 60% 40% 40%',
+              boxShadow: `inset -8px -12px 22px rgba(0,0,0,0.15), inset 6px 8px 18px rgba(255,255,255,0.15), 0 8px 28px rgba(0,0,0,0.18)`,
             }}
           >
-            {/* Shine */}
             <div style={{
-              position:'absolute', top:'15%', left:'22%',
-              width:'28%', height:'20%',
-              background:'rgba(255,255,255,0.55)',
-              borderRadius:'50%',
-              transform:'rotate(-30deg)',
+              position: 'absolute', top: '14%', left: '20%',
+              width: '30%', height: '22%',
+              background: 'rgba(255,255,255,0.5)',
+              borderRadius: '50%',
+              transform: 'rotate(-35deg)',
+              filter: 'blur(2px)',
             }} />
-          </div>
-          {/* String */}
-          <div style={{
-            width:2, height: b.size * 0.6,
-            background:'rgba(255,255,255,0.4)',
-            margin:'0 auto',
-          }} />
-        </div>
+            <div style={{
+              position: 'absolute', top: '22%', left: '28%',
+              width: '12%', height: '8%',
+              background: 'rgba(255,255,255,0.7)',
+              borderRadius: '50%',
+              transform: 'rotate(-30deg)',
+            }} />
+          </motion.div>
+          <svg width={b.size} height={b.size * 0.75} viewBox="0 0 40 50" style={{ display: 'block', margin: '0 auto' }}>
+            <path
+              d="M20 0 Q22 15, 18 25 Q16 35, 21 50"
+              fill="none"
+              stroke="rgba(255,255,255,0.35)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </motion.div>
       ))}
 
-      {/* Central text */}
       <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
         <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [0, 1.3, 1.1, 1.1, 0], opacity: [0, 1, 1, 1, 0] }}
-          transition={{ times: [0, 0.18, 0.32, 0.78, 1], duration: 6 }}
+          initial={{ scale: 0, opacity: 0, y: 30 }}
+          animate={{
+            scale: [0, 1.25, 0.95, 1.05, 1, 1, 0.85],
+            opacity: [0, 1, 1, 1, 1, 1, 0],
+            y: [30, -8, 2, 0, 0, 0, -20],
+          }}
+          transition={{
+            times: [0, 0.12, 0.2, 0.26, 0.32, 0.82, 1],
+            duration: 8,
+            ease: [0.34, 1.56, 0.64, 1],
+          }}
           className="text-center"
         >
-          <div className="font-display font-black text-white leading-none"
-            style={{ fontSize: 'clamp(3.5rem, 12vw, 7rem)', textShadow: '0 6px 30px rgba(0,0,0,0.5)' }}>
+          <motion.div
+            animate={{ rotate: [0, -3, 3, -2, 0] }}
+            transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+            className="font-display font-black text-white leading-none"
+            style={{ fontSize: 'clamp(3.5rem, 12vw, 7rem)', textShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+          >
             🎈 YAY!!!
-          </div>
-          <div className="font-display font-bold text-yellow-300 mt-3"
-            style={{ fontSize: 'clamp(1.4rem, 4vw, 2.5rem)', textShadow: '0 4px 15px rgba(0,0,0,0.4)' }}>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: [0, 1, 1, 0], y: [10, 0, 0, -8] }}
+            transition={{ delay: 0.6, duration: 6.5, times: [0, 0.08, 0.85, 1] }}
+            className="font-display font-bold text-yellow-300 mt-3"
+            style={{ fontSize: 'clamp(1.4rem, 4vw, 2.5rem)', textShadow: '0 4px 15px rgba(0,0,0,0.4)' }}
+          >
             You're doing amazing! 🌟
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </div>
@@ -107,19 +160,29 @@ function BalloonOverlay({ onDone }) {
 
 // ── 2. STAR BURST overlay ─────────────────────────────────────────────────────
 function StarOverlay({ onDone }) {
-  const stars = Array.from({ length: 55 }, (_, i) => {
+  const stars = useMemo(() => Array.from({ length: 55 }, (_, i) => {
     const angle = rand(0, Math.PI * 2);
-    const dist  = rand(120, 500);
+    const dist  = rand(120, 550);
+    const wobble = rand(15, 50);
     return {
       id: i,
       tx: Math.cos(angle) * dist,
       ty: Math.sin(angle) * dist,
-      size: rand(28, 65),
+      midX: Math.cos(angle + rand(-0.3, 0.3)) * dist * 0.5 + rand(-wobble, wobble),
+      midY: Math.sin(angle + rand(-0.3, 0.3)) * dist * 0.5 + rand(-wobble, wobble),
+      size: rand(22, 65),
       color: pick(STAR_COLORS),
-      duration: rand(0.9, 2.2),
-      delay: rand(0, 0.8),
+      duration: rand(1.4, 2.8),
+      delay: rand(0, 0.5),
+      rotate: rand(200, 900) * (Math.random() > 0.5 ? 1 : -1),
     };
-  });
+  }), []);
+
+  const twinkles = useMemo(() => Array.from({ length: 20 }, (_, i) => ({
+    id: i, x: rand(8, 92), y: rand(8, 92),
+    size: rand(12, 30), delay: rand(0.5, 2.5),
+    color: pick(STAR_COLORS),
+  })), []);
 
   useEffect(() => { const t = setTimeout(onDone, 5500); return () => clearTimeout(t); }, [onDone]);
 
@@ -127,43 +190,75 @@ function StarOverlay({ onDone }) {
     <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center overflow-hidden">
       <Backdrop opacity={0.5} />
 
-      {/* Big central flash */}
       <motion.div className="absolute rounded-full z-10"
-        style={{ background: 'radial-gradient(circle, #fff7aa, #FFD93D, #FF922B)' }}
+        style={{ background: 'radial-gradient(circle, #fff7aaCC, #FFD93D88, transparent 70%)' }}
         initial={{ width: 0, height: 0, opacity: 1 }}
-        animate={{ width: '70vw', height: '70vw', opacity: 0 }}
-        transition={{ duration: 0.55, ease: 'easeOut' }}
+        animate={{ width: ['0vw', '90vw', '110vw'], height: ['0vw', '90vw', '110vw'], opacity: [1, 0.8, 0] }}
+        transition={{ duration: 0.9, ease: [0.16, 0.8, 0.3, 1], times: [0, 0.4, 1] }}
       />
 
-      {/* Stars shooting out */}
       {stars.map((s) => (
-        <div key={s.id} className="star-particle absolute z-20"
+        <motion.div
+          key={s.id}
+          className="absolute z-20"
+          initial={{ x: 0, y: 0, scale: 0, rotate: 0, opacity: 1 }}
+          animate={{
+            x: [0, s.midX, s.tx],
+            y: [0, s.midY, s.ty],
+            scale: [0, 1.6, 1.1, 0],
+            rotate: [0, s.rotate * 0.4, s.rotate],
+            opacity: [0, 1, 0.9, 0],
+          }}
+          transition={{
+            duration: s.duration,
+            delay: s.delay,
+            ease: [0.22, 1, 0.36, 1],
+            scale: { times: [0, 0.15, 0.6, 1] },
+            opacity: { times: [0, 0.1, 0.7, 1] },
+          }}
           style={{
-            '--star-tx': `${s.tx}px`,
-            '--star-ty': `${s.ty}px`,
-            '--duration': `${s.duration}s`,
-            animationDelay: `${s.delay}s`,
             fontSize: s.size,
             color: s.color,
-            filter: `drop-shadow(0 0 8px ${s.color})`,
+            filter: `drop-shadow(0 0 ${s.size * 0.3}px ${s.color})`,
           }}
-        >⭐</div>
+        >⭐</motion.div>
       ))}
 
-      {/* Central message */}
+      {twinkles.map((t) => (
+        <motion.div key={`tw-${t.id}`} className="absolute z-15"
+          style={{ left: `${t.x}%`, top: `${t.y}%`, fontSize: t.size, color: t.color }}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: [0, 1.3, 0, 1, 0], opacity: [0, 1, 0, 0.8, 0] }}
+          transition={{ delay: t.delay, duration: 2, ease: 'easeInOut' }}
+        >✦</motion.div>
+      ))}
+
       <motion.div className="z-30 text-center"
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: [0, 1.5, 1.2, 1.2, 0], opacity: [0, 1, 1, 1, 0] }}
-        transition={{ times: [0, 0.18, 0.3, 0.78, 1], duration: 5 }}
+        initial={{ scale: 0, opacity: 0, y: 20 }}
+        animate={{
+          scale: [0, 1.35, 0.9, 1.05, 1, 1, 0],
+          opacity: [0, 1, 1, 1, 1, 1, 0],
+          y: [20, -5, 3, 0, 0, 0, -25],
+        }}
+        transition={{ times: [0, 0.1, 0.17, 0.22, 0.28, 0.82, 1], duration: 5, ease: [0.34, 1.56, 0.64, 1] }}
       >
-        <div className="font-display font-black text-white"
-          style={{ fontSize: 'clamp(4rem, 13vw, 8rem)', textShadow: '0 0 40px #FFD93D, 0 6px 20px rgba(0,0,0,0.5)' }}>
+        <motion.div
+          animate={{ scale: [1, 1.06, 1], rotate: [0, 2, -2, 0] }}
+          transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+          className="font-display font-black text-white"
+          style={{ fontSize: 'clamp(4rem, 13vw, 8rem)', textShadow: '0 0 40px #FFD93D, 0 8px 32px rgba(0,0,0,0.5)' }}
+        >
           ✨ AMAZING!
-        </div>
-        <div className="font-display font-bold text-yellow-200 mt-2"
-          style={{ fontSize: 'clamp(1.5rem, 4.5vw, 3rem)', textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: [0, 1, 1, 0], y: [12, 0, 0, -10] }}
+          transition={{ delay: 0.4, duration: 4.2, times: [0, 0.1, 0.85, 1] }}
+          className="font-display font-bold text-yellow-200 mt-2"
+          style={{ fontSize: 'clamp(1.5rem, 4.5vw, 3rem)', textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+        >
           You're a superstar! ⭐
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );
@@ -171,60 +266,110 @@ function StarOverlay({ onDone }) {
 
 // ── 3. CONFETTI overlay ───────────────────────────────────────────────────────
 function ConfettiOverlay({ onDone }) {
-  const pieces = Array.from({ length: 120 }, (_, i) => ({
-    id: i,
-    x: rand(-2, 102),
-    color: pick(CONFETTI_COLORS),
-    w: rand(10, 22),
-    h: rand(14, 30),
-    duration: rand(2.8, 5.5),
-    delay: rand(0, 2.5),
-    rot: rand(0, 360),
-    shape: i % 5 === 0 ? 'circle' : i % 7 === 0 ? 'star' : 'rect',
-  }));
+  const pieces = useMemo(() => Array.from({ length: 120 }, (_, i) => {
+    const baseX = rand(-5, 105);
+    const windDir = Math.random() > 0.5 ? 1 : -1;
+    const drift = rand(4, 18) * windDir;
+    return {
+      id: i,
+      x: baseX,
+      color: pick(CONFETTI_COLORS),
+      w: rand(8, 22),
+      h: rand(12, 28),
+      duration: rand(4, 7),
+      delay: rand(0, 2.5),
+      rot: rand(360, 1440) * (Math.random() > 0.5 ? 1 : -1),
+      drift,
+      xFrames: [
+        `${baseX}vw`,
+        `${baseX + drift * 0.3}vw`,
+        `${baseX + drift * 0.7}vw`,
+        `${baseX + drift * 0.5}vw`,
+        `${baseX + drift}vw`,
+      ],
+      flipSpeed: rand(0.4, 0.9),
+      shape: i % 7 === 0 ? 'circle' : i % 9 === 0 ? 'star' : i % 5 === 0 ? 'ribbon' : 'rect',
+    };
+  }), []);
 
-  useEffect(() => { const t = setTimeout(onDone, 8000); return () => clearTimeout(t); }, [onDone]);
+  useEffect(() => { const t = setTimeout(onDone, 9000); return () => clearTimeout(t); }, [onDone]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
       <Backdrop opacity={0.4} color="#1a0533" />
 
       {pieces.map((p) => (
-        <div key={p.id}
-          className="confetti-piece absolute top-0"
-          style={{
-            left: `${p.x}%`,
-            width: p.shape === 'circle' ? p.w : p.w,
-            height: p.shape === 'circle' ? p.w : p.h,
-            backgroundColor: p.shape === 'star' ? 'transparent' : p.color,
-            color: p.shape === 'star' ? p.color : 'transparent',
-            fontSize: p.shape === 'star' ? p.w + 6 : undefined,
-            borderRadius: p.shape === 'circle' ? '50%' : '2px',
-            '--duration': `${p.duration}s`,
-            '--conf-rot': `${p.rot}deg`,
-            animationDelay: `${p.delay}s`,
-            zIndex: 1,
+        <motion.div
+          key={p.id}
+          className="absolute"
+          style={{ top: -50, zIndex: 1 }}
+          initial={{ y: 0, x: `${p.x}vw`, rotate: 0, opacity: 0 }}
+          animate={{
+            y: [0, '110vh'],
+            x: p.xFrames,
+            rotate: [0, p.rot * 0.3, p.rot * 0.6, p.rot * 0.85, p.rot],
+            opacity: [0, 1, 1, 1, 0],
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            y: { ease: [0.4, 0, 1, 1] },
+            x: { ease: 'easeInOut' },
+            rotate: { ease: 'linear' },
+            opacity: { times: [0, 0.04, 0.3, 0.9, 1] },
           }}
         >
-          {p.shape === 'star' ? '⭐' : null}
-        </div>
+          <motion.div
+            animate={{ scaleX: [1, 0.1, 1, -0.1, 1], scaleY: [1, 0.8, 1, 0.85, 1] }}
+            transition={{ repeat: Infinity, duration: p.flipSpeed, ease: 'easeInOut' }}
+            style={{
+              width: p.w,
+              height: p.shape === 'circle' ? p.w : p.shape === 'ribbon' ? p.h * 1.5 : p.h,
+              backgroundColor: p.shape === 'star' ? 'transparent' : p.color,
+              color: p.shape === 'star' ? p.color : 'transparent',
+              fontSize: p.shape === 'star' ? p.w + 6 : undefined,
+              borderRadius: p.shape === 'circle' ? '50%' : p.shape === 'ribbon' ? '2px 2px 1px 1px' : '2px',
+              boxShadow: p.shape !== 'star' ? `0 2px 6px ${p.color}44` : undefined,
+              transformOrigin: 'center center',
+            }}
+          >
+            {p.shape === 'star' ? '⭐' : null}
+          </motion.div>
+        </motion.div>
       ))}
 
       <div className="absolute inset-0 flex items-center justify-center z-10">
         <motion.div className="text-center"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [0, 1.3, 1, 1, 0], opacity: [0, 1, 1, 1, 0] }}
-          transition={{ times: [0, 0.16, 0.3, 0.78, 1], duration: 7 }}
+          initial={{ scale: 0, opacity: 0, y: 30 }}
+          animate={{
+            scale: [0, 1.3, 0.9, 1.05, 1, 1, 0.6],
+            opacity: [0, 1, 1, 1, 1, 1, 0],
+            y: [30, -8, 3, 0, 0, 0, -40],
+          }}
+          transition={{ times: [0, 0.1, 0.17, 0.22, 0.28, 0.82, 1], duration: 7, ease: [0.34, 1.56, 0.64, 1] }}
         >
-          <div style={{ fontSize: 'clamp(5rem, 16vw, 10rem)' }}>🎉</div>
-          <div className="font-display font-black text-white"
-            style={{ fontSize: 'clamp(3.5rem, 11vw, 7rem)', textShadow: '0 6px 30px rgba(0,0,0,0.6)' }}>
+          <motion.div
+            animate={{ rotate: [0, 8, -8, 5, -5, 0], scale: [1, 1.1, 1, 1.05, 1] }}
+            transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+            style={{ fontSize: 'clamp(5rem, 16vw, 10rem)' }}
+          >🎉</motion.div>
+          <motion.div
+            animate={{ scale: [1, 1.03, 1] }}
+            transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+            className="font-display font-black text-white"
+            style={{ fontSize: 'clamp(3.5rem, 11vw, 7rem)', textShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
+          >
             WOOHOO!
-          </div>
-          <div className="font-display font-bold text-pink-200 mt-2"
-            style={{ fontSize: 'clamp(1.3rem, 4vw, 2.4rem)', textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: [0, 1, 1, 0], y: [10, 0, 0, -8] }}
+            transition={{ delay: 0.5, duration: 5.5, times: [0, 0.1, 0.85, 1] }}
+            className="font-display font-bold text-pink-200 mt-2"
+            style={{ fontSize: 'clamp(1.3rem, 4vw, 2.4rem)', textShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+          >
             What a rockstar! 🚀
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </div>
@@ -233,41 +378,65 @@ function ConfettiOverlay({ onDone }) {
 
 // ── 4. MASCOT overlay ─────────────────────────────────────────────────────────
 function MascotOverlay({ onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 6500); return () => clearTimeout(t); }, [onDone]);
+  useEffect(() => { const t = setTimeout(onDone, 7000); return () => clearTimeout(t); }, [onDone]);
+
+  const sparkles = useMemo(() => Array.from({ length: 12 }, (_, i) => ({
+    id: i, x: rand(10, 90), y: rand(15, 85), size: rand(16, 36),
+    delay: rand(0.5, 3), color: pick(STAR_COLORS),
+  })), []);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
       <Backdrop opacity={0.6} color="#0f0728" />
 
-      <motion.div className="z-10 flex flex-col items-center gap-5 text-center px-8"
-        initial={{ scale: 0, y: 80, opacity: 0 }}
-        animate={{ scale: [0, 1.15, 1, 1, 0.9, 0], y: [80, -10, 0, 0, 0, -40], opacity: [0, 1, 1, 1, 1, 0] }}
-        transition={{ times: [0, 0.15, 0.25, 0.72, 0.88, 1], duration: 6.5 }}
-      >
-        {/* Big mascot */}
-        <div style={{ fontSize: 'clamp(6rem, 22vw, 12rem)', filter: 'drop-shadow(0 0 30px rgba(99,102,241,0.8))' }}>
-          🚀
-        </div>
+      {sparkles.map((s) => (
+        <motion.div key={s.id} className="absolute z-5"
+          style={{ left: `${s.x}%`, top: `${s.y}%`, fontSize: s.size, color: s.color }}
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: [0, 1.4, 0], opacity: [0, 0.9, 0], rotate: [0, 180] }}
+          transition={{ delay: s.delay, duration: 1.5, ease: 'easeOut' }}
+        >✦</motion.div>
+      ))}
 
-        {/* Card */}
-        <div className="rounded-3xl px-10 py-8 flex flex-col items-center gap-3"
+      <motion.div className="z-10 flex flex-col items-center gap-6 text-center px-8"
+        initial={{ scale: 0, y: 120, opacity: 0 }}
+        animate={{
+          scale: [0, 1.15, 0.92, 1.04, 1, 1, 0.85],
+          y: [120, -15, 5, 0, 0, 0, -80],
+          opacity: [0, 1, 1, 1, 1, 1, 0],
+        }}
+        transition={{ times: [0, 0.1, 0.17, 0.22, 0.28, 0.82, 1], duration: 7, ease: [0.34, 1.56, 0.64, 1] }}
+      >
+        <motion.div
+          animate={{ y: [0, -18, 0, -8, 0], rotate: [0, 6, -4, 3, 0] }}
+          transition={{ repeat: Infinity, duration: 3.5, ease: 'easeInOut' }}
+          style={{ fontSize: 'clamp(6rem, 22vw, 12rem)', filter: 'drop-shadow(0 0 40px rgba(99,102,241,0.8))' }}
+        >
+          🚀
+        </motion.div>
+
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: [0.8, 1.05, 1], opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
+          className="rounded-[2.5rem] px-12 py-10 flex flex-col items-center gap-4 shadow-2xl"
           style={{
-            background: 'linear-gradient(135deg, #6366F1dd, #8B5CF6dd)',
-            border: '4px solid rgba(255,255,255,0.35)',
-            backdropFilter: 'blur(8px)',
-            boxShadow: '0 20px 60px rgba(99,102,241,0.5)',
-            maxWidth: '75vw',
+            background: 'linear-gradient(135deg, rgba(99,102,241,0.95), rgba(139,92,246,0.95))',
+            border: '6px solid rgba(255,255,255,0.3)',
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 25px 70px rgba(99,102,241,0.6)',
+            maxWidth: '80vw',
           }}
         >
           <div className="font-display font-black text-white"
             style={{ fontSize: 'clamp(2.2rem, 7vw, 4.5rem)', textShadow: '0 4px 20px rgba(0,0,0,0.3)', lineHeight: 1.1 }}>
             YOU ARE<br />INCREDIBLE! ⭐
           </div>
-          <div className="font-display font-bold text-indigo-200"
+          <div className="font-display font-bold text-indigo-100"
             style={{ fontSize: 'clamp(1.1rem, 3.5vw, 2rem)' }}>
             Super brave explorer! 💜
           </div>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );
@@ -275,108 +444,180 @@ function MascotOverlay({ onDone }) {
 
 // ── 5. BRAVE BADGE overlay ────────────────────────────────────────────────────
 function BadgeOverlay({ onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 6000); return () => clearTimeout(t); }, [onDone]);
+  useEffect(() => { const t = setTimeout(onDone, 6500); return () => clearTimeout(t); }, [onDone]);
+
+  const rays = useMemo(() => Array.from({ length: 10 }, (_, i) => ({
+    id: i, angle: (360 / 10) * i, delay: rand(0.1, 0.4),
+  })), []);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center overflow-hidden">
       <Backdrop opacity={0.65} color="#1a0a00" />
 
-      {/* Radial glow */}
       <motion.div className="absolute rounded-full z-0"
-        style={{ background: 'radial-gradient(circle, rgba(255,217,61,0.35), transparent 70%)' }}
-        initial={{ width: 0, height: 0 }}
-        animate={{ width: '100vw', height: '100vw', opacity: [0, 1, 1, 0] }}
-        transition={{ duration: 5.5, times: [0, 0.15, 0.75, 1] }}
+        style={{ background: 'radial-gradient(circle, rgba(255,217,61,0.35), rgba(255,146,43,0.15), transparent 75%)' }}
+        initial={{ width: 0, height: 0, opacity: 0 }}
+        animate={{ width: '130vw', height: '130vw', opacity: [0, 0.8, 0.9, 0] }}
+        transition={{ duration: 6, times: [0, 0.12, 0.8, 1], ease: [0.16, 0.7, 0.35, 1] }}
       />
 
-      <div className="badge-wrap z-10 flex flex-col items-center gap-5 text-center px-6">
-        <div style={{ fontSize: 'clamp(6rem, 20vw, 11rem)', filter: 'drop-shadow(0 0 25px #FFD93D)' }}>
+      {rays.map((r) => (
+        <motion.div key={r.id} className="absolute z-1"
+          style={{
+            width: 3, height: '40vh', transformOrigin: 'bottom center',
+            background: 'linear-gradient(to top, rgba(255,217,61,0.5), transparent)',
+            rotate: `${r.angle}deg`,
+          }}
+          initial={{ scaleY: 0, opacity: 0 }}
+          animate={{ scaleY: [0, 1, 1, 0], opacity: [0, 0.6, 0.5, 0] }}
+          transition={{ delay: r.delay, duration: 4, times: [0, 0.15, 0.8, 1], ease: 'easeOut' }}
+        />
+      ))}
+
+      <motion.div
+        className="z-10 flex flex-col items-center gap-6 text-center px-6"
+        initial={{ scale: 0, rotate: -15, opacity: 0 }}
+        animate={{
+          scale: [0, 1.25, 0.9, 1.06, 1, 1, 0.5],
+          rotate: [-15, 4, -2, 1, 0, 0, 8],
+          opacity: [0, 1, 1, 1, 1, 1, 0],
+        }}
+        transition={{ times: [0, 0.1, 0.17, 0.22, 0.28, 0.82, 1], duration: 6.5, ease: [0.34, 1.56, 0.64, 1] }}
+      >
+        <motion.div
+          animate={{ scale: [1, 1.12, 1, 1.06, 1], y: [0, -5, 0, -3, 0] }}
+          transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+          style={{ fontSize: 'clamp(6rem, 20vw, 11rem)', filter: 'drop-shadow(0 0 30px #FFD93D)' }}
+        >
           🏆
-        </div>
-        <div className="font-display font-black"
+        </motion.div>
+        <motion.div
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+          className="font-display font-black"
           style={{
             fontSize: 'clamp(3.5rem, 12vw, 7.5rem)',
             background: 'linear-gradient(135deg, #FFD93D, #FF922B, #FF6B6B)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.4))',
+            filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.4))',
             lineHeight: 1,
           }}
         >
           SUPER<br />BRAVE!
-        </div>
-        <div className="font-display font-bold text-white"
-          style={{ fontSize: 'clamp(1.4rem, 4.5vw, 2.8rem)', textShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: [0, 1, 1, 0], y: [8, 0, 0, -6] }}
+          transition={{ delay: 0.3, duration: 5.2, times: [0, 0.08, 0.85, 1] }}
+          className="font-display font-bold text-white"
+          style={{ fontSize: 'clamp(1.4rem, 4.5vw, 2.8rem)', textShadow: '0 4px 15px rgba(0,0,0,0.5)' }}
+        >
           ⭐ Brave Point Earned! ⭐
-        </div>
-        <div className="font-display text-yellow-300"
-          style={{ fontSize: 'clamp(1rem, 3vw, 1.8rem)', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 1, 0] }}
+          transition={{ delay: 0.6, duration: 4.5, times: [0, 0.1, 0.85, 1] }}
+          className="font-display text-yellow-300 font-medium"
+          style={{ fontSize: 'clamp(1rem, 3vw, 1.8rem)', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
+        >
           Keep going, champion! 🦁
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
 
 // ── 6. RAINBOW overlay ────────────────────────────────────────────────────────
 function RainbowOverlay({ onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 6000); return () => clearTimeout(t); }, [onDone]);
+  useEffect(() => { const t = setTimeout(onDone, 7000); return () => clearTimeout(t); }, [onDone]);
 
-  const stars = Array.from({ length: 30 }, (_, i) => ({
+  const sparkles = useMemo(() => Array.from({ length: 30 }, (_, i) => ({
     id: i, x: rand(5, 95), y: rand(10, 85),
-    size: rand(20, 50), delay: rand(0, 1.5), color: pick(STAR_COLORS),
-  }));
+    size: rand(18, 50), delay: rand(0.3, 3), color: pick(STAR_COLORS),
+    driftY: rand(-15, 15),
+  })), []);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
       <Backdrop opacity={0.35} color="#0a0a1a" />
 
-      {/* Rainbow arc — very large */}
       <motion.div className="absolute left-1/2 z-10"
-        style={{ transform: 'translateX(-50%)', bottom: '-20vh' }}
-        initial={{ scaleX: 0, scaleY: 0, opacity: 0 }}
-        animate={{ scaleX: [0, 1.1, 1], scaleY: [0, 1.1, 1], opacity: [0, 1, 1, 0] }}
-        transition={{ times: [0, 0.2, 0.5, 1], duration: 6 }}
+        style={{ transform: 'translateX(-50%)', bottom: '-25vh' }}
+        initial={{ scaleX: 0, scaleY: 0, opacity: 0, y: 80 }}
+        animate={{
+          scaleX: [0, 0.4, 1.03, 1],
+          scaleY: [0, 0.4, 1.03, 1],
+          opacity: [0, 0.6, 1, 1, 0],
+          y: [80, 40, -5, 0, 30],
+        }}
+        transition={{ times: [0, 0.12, 0.28, 0.5, 1], duration: 7, ease: [0.16, 0.8, 0.3, 1] }}
       >
-        <div style={{
-          width: '140vw',
-          height: '70vw',
-          borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
-          background: 'conic-gradient(from 180deg at 50% 100%, #FF0000 0%, #FF7700 14%, #FFFF00 28%, #00DD00 42%, #0080FF 57%, #8B00FF 71%, #FF0077 85%, #FF0000 100%)',
-          opacity: 0.85,
-          boxShadow: '0 0 80px rgba(255,255,255,0.3)',
-          marginLeft: '-20vw',
-        }} />
+        <motion.div
+          animate={{ scale: [1, 1.015, 1] }}
+          transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+          style={{
+            width: '150vw',
+            height: '75vw',
+            borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
+            background: 'conic-gradient(from 180deg at 50% 100%, #FF0000 0%, #FF7700 14%, #FFFF00 28%, #00DD00 42%, #0080FF 57%, #8B00FF 71%, #FF0077 85%, #FF0000 100%)',
+            opacity: 0.85,
+            boxShadow: '0 0 80px rgba(255,255,255,0.3), inset 0 0 60px rgba(255,255,255,0.1)',
+            marginLeft: '-25vw',
+          }}
+        />
       </motion.div>
 
-      {/* Sparkle stars across screen */}
-      {stars.map((s) => (
+      {sparkles.map((s) => (
         <motion.div key={s.id}
           className="absolute z-20"
           style={{ left: `${s.x}%`, top: `${s.y}%`, fontSize: s.size, color: s.color }}
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [0, 1.4, 1, 0], opacity: [0, 1, 1, 0] }}
-          transition={{ delay: s.delay, duration: 3, times: [0, 0.2, 0.7, 1] }}
+          initial={{ scale: 0, opacity: 0, y: 0 }}
+          animate={{
+            scale: [0, 1.4, 0.8, 1.2, 0],
+            opacity: [0, 1, 0.6, 0.9, 0],
+            rotate: [0, 60, 140, 220, 300],
+            y: [0, s.driftY * 0.5, s.driftY],
+          }}
+          transition={{ delay: s.delay, duration: 2.5, ease: 'easeOut' }}
         >✨</motion.div>
       ))}
 
       <div className="absolute inset-0 flex items-center justify-center z-30">
         <motion.div className="text-center"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [0, 1.25, 1, 1, 0], opacity: [0, 1, 1, 1, 0] }}
-          transition={{ times: [0, 0.18, 0.3, 0.78, 1], duration: 6 }}
+          initial={{ scale: 0, opacity: 0, y: 35 }}
+          animate={{
+            scale: [0, 1.25, 0.92, 1.05, 1, 1, 0],
+            opacity: [0, 1, 1, 1, 1, 1, 0],
+            y: [35, -6, 3, 0, 0, 0, -50],
+          }}
+          transition={{ times: [0, 0.1, 0.17, 0.22, 0.28, 0.82, 1], duration: 7, ease: [0.34, 1.56, 0.64, 1] }}
         >
-          <div style={{ fontSize: 'clamp(4rem, 14vw, 9rem)', filter: 'drop-shadow(0 0 20px rgba(255,255,255,0.6))' }}>
+          <motion.div
+            animate={{ y: [0, -8, 0], scale: [1, 1.06, 1] }}
+            transition={{ repeat: Infinity, duration: 2.8, ease: 'easeInOut' }}
+            style={{ fontSize: 'clamp(4rem, 14vw, 9rem)', filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.7))' }}
+          >
             🌈
-          </div>
-          <div className="font-display font-black text-white"
-            style={{ fontSize: 'clamp(3rem, 10vw, 6rem)', textShadow: '0 6px 30px rgba(0,0,0,0.5)' }}>
+          </motion.div>
+          <motion.div
+            animate={{ scale: [1, 1.02, 1] }}
+            transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+            className="font-display font-black text-white"
+            style={{ fontSize: 'clamp(3rem, 10vw, 6rem)', textShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+          >
             BEAUTIFUL!
-          </div>
-          <div className="font-display font-bold text-yellow-200 mt-2"
-            style={{ fontSize: 'clamp(1.2rem, 3.8vw, 2.5rem)' }}>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: [0, 1, 1, 0], y: [10, 0, 0, -8] }}
+            transition={{ delay: 0.5, duration: 5.5, times: [0, 0.08, 0.85, 1] }}
+            className="font-display font-bold text-yellow-200 mt-2"
+            style={{ fontSize: 'clamp(1.2rem, 3.8vw, 2.5rem)', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
+          >
             You light up the room! ✨
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </div>
@@ -385,52 +626,102 @@ function RainbowOverlay({ onDone }) {
 
 // ── 7. SUPERPOWER overlay ─────────────────────────────────────────────────────
 function SuperpowerOverlay({ onDone }) {
-  useEffect(() => { const t = setTimeout(onDone, 7000); return () => clearTimeout(t); }, [onDone]);
+  useEffect(() => { const t = setTimeout(onDone, 8000); return () => clearTimeout(t); }, [onDone]);
 
-  const sparks = Array.from({ length: 20 }, (_, i) => ({
-    id: i, x: rand(5, 95), y: rand(5, 95), delay: rand(0, 2),
-  }));
+  const sparks = useMemo(() => Array.from({ length: 22 }, (_, i) => ({
+    id: i, x: rand(5, 95), y: rand(5, 95),
+    delay: rand(0, 2.5),
+    driftX: rand(-20, 20), driftY: rand(-30, -5),
+    rotDir: Math.random() > 0.5 ? 1 : -1,
+  })), []);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center overflow-hidden"
-      style={{ background: 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.75) 0%, rgba(0,0,0,0.82) 100%)' }}
-    >
-      {/* Spark particles */}
+    <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center overflow-hidden">
+      <motion.div
+        className="absolute inset-0"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        style={{ background: 'radial-gradient(circle at 50% 50%, rgba(99,102,241,0.85) 0%, rgba(0,0,0,0.9) 100%)' }}
+      />
+
       {sparks.map((s) => (
-        <motion.div key={s.id} className="absolute text-4xl z-10"
+        <motion.div key={s.id} className="absolute text-5xl z-10"
           style={{ left: `${s.x}%`, top: `${s.y}%` }}
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [0, 1.5, 0], opacity: [0, 1, 0] }}
-          transition={{ delay: s.delay, duration: 1.2, repeat: 2 }}
+          initial={{ scale: 0, opacity: 0, x: 0, y: 0, rotate: 0 }}
+          animate={{
+            scale: [0, 1.6, 0.3, 1.4, 0],
+            opacity: [0, 1, 0.3, 0.9, 0],
+            x: [0, s.driftX * 0.5, s.driftX],
+            y: [0, s.driftY * 0.5, s.driftY],
+            rotate: [0, 30 * s.rotDir, -20 * s.rotDir, 15 * s.rotDir, 0],
+          }}
+          transition={{
+            delay: s.delay,
+            duration: 1.8,
+            repeat: 2,
+            repeatDelay: rand(0.2, 0.6),
+            ease: [0.22, 1, 0.36, 1],
+          }}
         >⚡</motion.div>
       ))}
 
       <motion.div className="z-20 text-center px-6"
         style={{ maxWidth: '85vw' }}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: [0, 1.2, 1, 1, 0], opacity: [0, 1, 1, 1, 0] }}
-        transition={{ times: [0, 0.15, 0.25, 0.8, 1], duration: 7 }}
+        initial={{ scale: 0, opacity: 0, y: 50 }}
+        animate={{
+          scale: [0, 1.2, 0.9, 1.05, 1, 1, 0.75],
+          opacity: [0, 1, 1, 1, 1, 1, 0],
+          y: [50, -8, 3, 0, 0, 0, -80],
+        }}
+        transition={{ times: [0, 0.1, 0.16, 0.21, 0.27, 0.82, 1], duration: 8, ease: [0.34, 1.56, 0.64, 1] }}
       >
-        <div style={{ fontSize: 'clamp(6rem, 22vw, 13rem)', filter: 'drop-shadow(0 0 40px rgba(255,215,0,0.9))' }}>
+        <motion.div
+          animate={{
+            scale: [1, 1.15, 1, 1.08, 1],
+            filter: [
+              'drop-shadow(0 0 30px #FFD700)',
+              'drop-shadow(0 0 55px #FFD700)',
+              'drop-shadow(0 0 35px #FFD700)',
+              'drop-shadow(0 0 50px #FFD700)',
+              'drop-shadow(0 0 30px #FFD700)',
+            ],
+          }}
+          transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+          style={{ fontSize: 'clamp(6rem, 22vw, 13rem)' }}
+        >
           🦸
-        </div>
-        <div className="font-display font-black text-white"
-          style={{ fontSize: 'clamp(2.5rem, 9vw, 6rem)', textShadow: '0 0 40px rgba(99,102,241,0.9), 0 6px 20px rgba(0,0,0,0.5)', lineHeight: 1.1 }}>
+        </motion.div>
+        <motion.div
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+          className="font-display font-black text-white"
+          style={{ fontSize: 'clamp(2.5rem, 9vw, 6rem)', textShadow: '0 0 40px rgba(99,102,241,0.9), 0 8px 32px rgba(0,0,0,0.6)', lineHeight: 1.1 }}
+        >
           YOU JUST<br />UNLOCKED
-        </div>
-        <div className="font-display font-black mt-1"
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: [0, 1, 1, 0], y: [10, 0, 0, 0] }}
+          transition={{ delay: 0.4, duration: 6.5, times: [0, 0.08, 0.85, 1] }}
+          className="font-display font-black mt-2"
           style={{
             fontSize: 'clamp(2.5rem, 9vw, 6rem)',
             background: 'linear-gradient(135deg, #FFD700, #FF922B)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))',
+            filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.5))',
           }}
-        >YOUR SUPERPOWER!</div>
-        <div className="font-display font-bold text-indigo-200 mt-3"
-          style={{ fontSize: 'clamp(1.2rem, 3.5vw, 2.2rem)' }}>
+        >YOUR SUPERPOWER!</motion.div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 1, 0] }}
+          transition={{ delay: 0.7, duration: 5.5, times: [0, 0.1, 0.85, 1] }}
+          className="font-display font-bold text-indigo-100 mt-4"
+          style={{ fontSize: 'clamp(1.2rem, 3.5vw, 2.2rem)', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
+        >
           Only the bravest kids have this power 💜
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   );
