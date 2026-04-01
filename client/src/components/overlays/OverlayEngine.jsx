@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { playOverlaySound, stopOverlaySound } from '../../../hooks/useJingle';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const rand = (a, b) => Math.random() * (b - a) + a;
@@ -455,12 +456,19 @@ export default function OverlayEngine({ socket }) {
   const [braveToast, setBraveToast]       = useState(false);
   const [starToast, setStarToast]         = useState(false);
 
-  const dismissOverlay = useCallback(() => setActiveOverlay(null), []);
+  const dismissOverlay = useCallback(() => {
+    stopOverlaySound();
+    setActiveOverlay(null);
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
 
-    const onOverlay      = ({ type }) => setActiveOverlay(type || 'balloons');
+    const onOverlay = ({ type }) => {
+      const overlayType = type || 'balloons';
+      setActiveOverlay(overlayType);
+      playOverlaySound(overlayType);
+    };
     const onBravePoint   = ({ total }) => { setBravePoints(total); setBraveToast(true); setTimeout(() => setBraveToast(false), 3000); };
     const onStar         = ({ total }) => { setStars(total); setStarToast(true); setTimeout(() => setStarToast(false), 2500); };
 

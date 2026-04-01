@@ -86,9 +86,15 @@ export default function ChildRoom() {
   }, [socket]);
 
   // ── Audio Detection ────────────────────────────────────────────────────────
-  const VOLUME_THRESHOLD = 0.18;
-  const DISTRESS_DURATION_MS = 1500;
-  const COOLDOWN_MS = 45000;
+  // Crying signature: sustained energy in 300–3000 Hz band + overall volume above threshold
+  const DISTRESS_DURATION_MS = 1500;  // must persist 1.5s
+  const COOLDOWN_MS          = 45000; // 45s between auto-triggers
+  const FFT_SIZE             = 2048;
+  const SAMPLE_RATE          = 44100;
+
+  // Bin index range for 300–3000 Hz
+  const binLow  = Math.floor(300  / (SAMPLE_RATE / FFT_SIZE));
+  const binHigh = Math.floor(3000 / (SAMPLE_RATE / FFT_SIZE));
 
   const startCooldown = useCallback(() => {
     setCooldown(true);
@@ -97,27 +103,40 @@ export default function ChildRoom() {
 
   const analyse = useCallback(() => {
     if (!analyserRef.current) return;
-    const bufferLength = analyserRef.current.fftSize;
-    const data = new Float32Array(bufferLength);
-    analyserRef.current.getFloatTimeDomainData(data);
-    let sum = 0;
-    for (let i = 0; i < bufferLength; i++) sum += data[i] * data[i];
-    const rms = Math.sqrt(sum / bufferLength);
+
+    // Time-domain for overall RMS volume
+    const tdData = new Float32Array(FFT_SIZE);
+    analyserRef.current.getFloatTimeDomainData(tdData);
+    let rmsSum = 0;
+    for (let i = 0; i < FFT_SIZE; i++) rmsSum += tdData[i] * tdData[i];
+    const rms = Math.sqrt(rmsSum / FFT_SIZE);
     setVolume(rms);
 
-    if (!cooldown && rms > VOLUME_THRESHOLD) {
+    // Frequency-domain: measure energy in the cry band (300–3000 Hz)
+    const freqData = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(freqData);
+    let bandEnergy = 0;
+    for (let b = binLow; b <= binHigh; b++) bandEnergy += freqData[b];
+    const bandScore = bandEnergy / ((binHigh - binLow) * 255); // 0–1
+
+    // Distress = loud overall + significant energy in cry frequency band
+    const isDistress = rms > 0.12 && bandScore > 0.25;
+
+    if (!cooldown && isDistress) {
       if (!distressStartRef.current) {
         distressStartRef.current = Date.now();
       } else if (Date.now() - distressStartRef.current > DISTRESS_DURATION_MS) {
         distressStartRef.current = null;
         startCooldown();
-        socket.emit('distress:detected', { confidence: Math.min(rms / 0.4, 1) });
+        const confidence = Math.min((rms / 0.35) * 0.6 + bandScore * 0.4, 1);
+        socket.emit('distress:detected', { confidence });
       }
-    } else {
+    } else if (!isDistress) {
       distressStartRef.current = null;
     }
+
     frameRef.current = requestAnimationFrame(analyse);
-  }, [cooldown, socket, startCooldown]);
+  }, [cooldown, socket, startCooldown, binLow, binHigh]);
 
   useEffect(() => {
     if (!audioEnabled) return;
@@ -128,7 +147,8 @@ export default function ChildRoom() {
       const ctx = new AudioContext();
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
+      analyser.fftSize = FFT_SIZE;
+      analyser.smoothingTimeConstant = 0.4; // less smoothing = faster response
       source.connect(analyser);
       streamRef.current = stream;
       audioCtxRef.current = ctx;
