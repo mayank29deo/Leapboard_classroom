@@ -59,6 +59,8 @@ export default function JitsiEmbed({
       const api = new JitsiMeetExternalAPI('meet.jit.si', {
         roomName,
         parentNode: containerRef.current,
+        width: '100%',
+        height: '100%',
         userInfo,
         configOverwrite: {
           prejoinPageEnabled: false,
@@ -87,10 +89,13 @@ export default function JitsiEmbed({
   }, [roomName, userInfo]);
 
   return (
-    <div className={className} style={style}>
-      <div ref={containerRef} className="w-full h-full" />
+    <div className={className} style={{ ...style, position: 'relative' }}>
+      <div
+        ref={containerRef}
+        style={{ position: 'absolute', inset: 0 }}
+      />
       {!ready && (
-        <div className="w-full h-full flex items-center justify-center text-gray-500">
+        <div className="absolute inset-0 flex items-center justify-center text-gray-500">
           Loading video…
         </div>
       )}
