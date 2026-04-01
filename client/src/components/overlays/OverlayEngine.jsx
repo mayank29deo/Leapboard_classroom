@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { playOverlaySound, stopOverlaySound, playStarSound } from '../../hooks/useJingle';
 
@@ -451,42 +451,46 @@ const OVERLAY_MAP = {
 
 export default function OverlayEngine({ socket, childName }) {
   const [activeOverlay, setActiveOverlay]   = useState(null);
-  const [overlayExtra, setOverlayExtra]     = useState(null); // extra data passed to overlay
+  const [overlayKey, setOverlayKey]         = useState(0);
   const [bravePoints, setBravePoints]       = useState(0);
   const [stars, setStars]                   = useState(0);
   const [braveToast, setBraveToast]         = useState(false);
   const [starToast, setStarToast]           = useState(false);
   const [starToastCount, setStarToastCount] = useState(0);
+  const overlayActiveRef = useRef(false);
+
+  const showOverlay = useCallback((type) => {
+    overlayActiveRef.current = true;
+    setActiveOverlay(type);
+    setOverlayKey((k) => k + 1);
+  }, []);
 
   const dismissOverlay = useCallback(() => {
     stopOverlaySound();
+    overlayActiveRef.current = false;
     setActiveOverlay(null);
-    setOverlayExtra(null);
   }, []);
 
   useEffect(() => {
     if (!socket) return;
 
-    // Regular overlay (distress auto / teacher manual / broadcast)
     const onOverlay = ({ type, initiator }) => {
       const overlayType = type || 'balloons';
-      setActiveOverlay(overlayType);
-      setOverlayExtra({ initiator });
-      // broadcast and manual always play full sound; auto is randomised
+      showOverlay(overlayType);
       const mode = initiator === 'auto' ? null : 'full';
       playOverlaySound(overlayType, mode);
     };
 
-    // Star award — always plays personalized jingle + name callout
     const onStar = ({ total }) => {
       setStars(total);
       setStarToastCount(total);
       setStarToast(true);
       setTimeout(() => setStarToast(false), 4000);
-      // Fire star overlay on child's screen
-      setActiveOverlay('stars');
-      setOverlayExtra({ initiator: 'star_award' });
       playStarSound(childName);
+      // Only fire star overlay when no other overlay is already playing
+      if (!overlayActiveRef.current) {
+        showOverlay('stars');
+      }
     };
 
     const onBravePoint = ({ total }) => {
@@ -504,7 +508,7 @@ export default function OverlayEngine({ socket, childName }) {
       socket.off('award:star',      onStar);
       socket.off('award:brave_point', onBravePoint);
     };
-  }, [socket, childName]);
+  }, [socket, childName, showOverlay]);
 
   const OverlayComponent = activeOverlay ? (OVERLAY_MAP[activeOverlay] || BalloonOverlay) : null;
 
@@ -512,7 +516,7 @@ export default function OverlayEngine({ socket, childName }) {
     <>
       <AnimatePresence>
         {OverlayComponent && (
-          <OverlayComponent key={activeOverlay + Date.now()} onDone={dismissOverlay} />
+          <OverlayComponent key={overlayKey} onDone={dismissOverlay} />
         )}
       </AnimatePresence>
 
