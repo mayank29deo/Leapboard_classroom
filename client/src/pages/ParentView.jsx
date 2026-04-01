@@ -24,7 +24,7 @@ export default function ParentView() {
   const [panicCooldown, setPanicCooldown] = useState(false);
   const [sessionStartTime] = useState(Date.now());
 
-  const handleJoin = useCallback(({ name, code, childName: cn }) => {
+  const handleJoin = useCallback(({ name, code, childName: cn, email }) => {
     setJoining(true);
     setJoinError(null);
     setParentName(name);
@@ -39,6 +39,7 @@ export default function ParentView() {
           role: 'parent',
           name,
           childName: cn,
+          parentEmail: email || null,
         });
         setJoining(false);
         setPhase('watching');

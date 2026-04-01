@@ -8,9 +8,10 @@ export default function JoinModal({
   error = null,
   showChildNameField = false,
 }) {
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
+  const [code, setCode]           = useState('');
+  const [name, setName]           = useState('');
   const [childName, setChildName] = useState('');
+  const [email, setEmail]         = useState('');
 
   const config = {
     teacher: {
@@ -51,9 +52,10 @@ export default function JoinModal({
     if (showChildNameField && !childName.trim()) return;
 
     onJoin({
-      name: name.trim(),
-      code: code.trim().toUpperCase(),
+      name:      name.trim(),
+      code:      code.trim().toUpperCase(),
       childName: childName.trim() || undefined,
+      email:     email.trim()     || undefined,
     });
   };
 
@@ -111,6 +113,23 @@ export default function JoinModal({
                 onChange={(e) => setChildName(e.target.value)}
                 placeholder="e.g. Riya"
                 maxLength={40}
+                className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3 font-display text-gray-800 text-base focus:outline-none focus:border-green-400 transition-colors"
+                style={{ fontSize: '16px' }}
+              />
+            </div>
+          )}
+
+          {/* Email — only for parent role */}
+          {role === 'parent' && (
+            <div>
+              <label className="block font-display font-bold text-gray-700 text-sm mb-1.5">
+                Your Email <span className="font-normal text-gray-400">(for class report)</span>
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. parent@gmail.com"
                 className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3 font-display text-gray-800 text-base focus:outline-none focus:border-green-400 transition-colors"
                 style={{ fontSize: '16px' }}
               />

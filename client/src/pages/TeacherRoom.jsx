@@ -5,6 +5,7 @@ import { getSocket } from '../services/socket';
 import TriggerPanel from '../components/dashboard/TriggerPanel';
 import AlertLog from '../components/dashboard/AlertLog';
 import JoinModal from '../components/common/JoinModal';
+import Leaderboard from '../components/dashboard/Leaderboard';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
 
@@ -31,6 +32,7 @@ export default function TeacherRoom() {
   const [teacherName, setTeacherName] = useState('');
   const [sessionCode, setSessionCode] = useState('');
   const [joining, setJoining] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [joinError, setJoinError] = useState(null);
 
   const [children, setChildren] = useState([]); // [{ socketId, name, emotion, bravePoints, mood }]
@@ -128,22 +130,40 @@ export default function TeacherRoom() {
       }]);
     };
 
-    socket.on('child:joined', handleChildJoined);
-    socket.on('child:left', handleChildLeft);
-    socket.on('child:checkin', handleChildCheckin);
-    socket.on('alert:distress', handleDistressAlert);
-    socket.on('child:brave_point', handleChildBravePoint);
-    socket.on('alert:parent_panic', handleParentPanic);
-    socket.on('trigger:confirmed', handleTriggerConfirmed);
+    // Broadcast confirmed — update star counts for all children (broadcast awards +1 each)
+    const handleBroadcastConfirmed = ({ childrenUpdated }) => {
+      if (!childrenUpdated) return;
+      setChildren((prev) => prev.map((c) => {
+        const updated = childrenUpdated.find((u) => u.socketId === c.socketId);
+        return updated ? { ...c, stars: updated.stars || c.stars } : c;
+      }));
+    };
+
+    // Individual star update
+    const handleStarUpdated = ({ childSocketId, total }) => {
+      setChildren((prev) => prev.map((c) => c.socketId === childSocketId ? { ...c, stars: total } : c));
+    };
+
+    socket.on('child:joined',        handleChildJoined);
+    socket.on('child:left',          handleChildLeft);
+    socket.on('child:checkin',       handleChildCheckin);
+    socket.on('alert:distress',      handleDistressAlert);
+    socket.on('child:brave_point',   handleChildBravePoint);
+    socket.on('alert:parent_panic',  handleParentPanic);
+    socket.on('trigger:confirmed',   handleTriggerConfirmed);
+    socket.on('broadcast:confirmed', handleBroadcastConfirmed);
+    socket.on('child:star_updated',  handleStarUpdated);
 
     return () => {
-      socket.off('child:joined', handleChildJoined);
-      socket.off('child:left', handleChildLeft);
-      socket.off('child:checkin', handleChildCheckin);
-      socket.off('alert:distress', handleDistressAlert);
-      socket.off('child:brave_point', handleChildBravePoint);
-      socket.off('alert:parent_panic', handleParentPanic);
-      socket.off('trigger:confirmed', handleTriggerConfirmed);
+      socket.off('child:joined',        handleChildJoined);
+      socket.off('child:left',          handleChildLeft);
+      socket.off('child:checkin',       handleChildCheckin);
+      socket.off('alert:distress',      handleDistressAlert);
+      socket.off('child:brave_point',   handleChildBravePoint);
+      socket.off('alert:parent_panic',  handleParentPanic);
+      socket.off('trigger:confirmed',   handleTriggerConfirmed);
+      socket.off('broadcast:confirmed', handleBroadcastConfirmed);
+      socket.off('child:star_updated',  handleStarUpdated);
     };
   }, [socket, activePanel]);
 
@@ -184,6 +204,17 @@ export default function TeacherRoom() {
 
       {phase === 'classroom' && (
         <>
+          {/* Leaderboard modal */}
+          <AnimatePresence>
+            {showLeaderboard && (
+              <Leaderboard
+                sessionCode={sessionCode}
+                teacherName={teacherName}
+                onClose={() => setShowLeaderboard(false)}
+              />
+            )}
+          </AnimatePresence>
+
           {/* Top bar */}
           <div className="flex items-center justify-between px-4 py-2.5 bg-gray-900 border-b border-gray-800 shrink-0">
             <button onClick={() => navigate('/')} className="text-gray-500 hover:text-white font-display text-sm transition-colors">
@@ -195,15 +226,25 @@ export default function TeacherRoom() {
               <span className="text-gray-600">|</span>
               <span className="font-display text-gray-400 text-sm">{teacherName}</span>
             </div>
-            {/* Session code */}
-            <button
-              onClick={copyCode}
-              className="flex items-center gap-2 bg-indigo-900 hover:bg-indigo-800 border border-indigo-700 rounded-xl px-3 py-1.5 transition-colors group"
-            >
-              <span className="font-display text-indigo-300 text-xs">Code:</span>
-              <span className="font-display font-black text-white text-sm tracking-widest">{sessionCode}</span>
-              <span className="text-indigo-400 text-xs group-hover:text-white transition-colors">📋</span>
-            </button>
+            {/* Right side: code + end class */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={copyCode}
+                className="flex items-center gap-2 bg-indigo-900 hover:bg-indigo-800 border border-indigo-700 rounded-xl px-3 py-1.5 transition-colors group"
+              >
+                <span className="font-display text-indigo-300 text-xs">Code:</span>
+                <span className="font-display font-black text-white text-sm tracking-widest">{sessionCode}</span>
+                <span className="text-indigo-400 text-xs group-hover:text-white transition-colors">📋</span>
+              </button>
+              <motion.button
+                onClick={() => setShowLeaderboard(true)}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-display font-bold text-sm text-white"
+                style={{ background: 'linear-gradient(135deg,#10B981,#059669)', boxShadow: '0 4px 12px rgba(16,185,129,0.35)' }}
+              >
+                🏆 End Class
+              </motion.button>
+            </div>
           </div>
 
           {/* Parent panic alerts */}
