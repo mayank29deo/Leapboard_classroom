@@ -5,6 +5,7 @@ import { getSocket } from '../services/socket';
 import OverlayEngine from '../components/overlays/OverlayEngine';
 import FeelingCorner from '../components/classroom/FeelingCorner';
 import JoinModal from '../components/common/JoinModal';
+import JitsiEmbed from '../components/common/JitsiEmbed';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
 
@@ -30,17 +31,11 @@ export default function ChildRoom() {
   const distressStartRef = useRef(null);
   const cooldownTimerRef = useRef(null);
 
-  // Jitsi room URL
-  const jitsiUrl = sessionCode
-    ? `https://meet.jit.si/leapboard${sessionCode.toLowerCase()}` +
-      `#config.prejoinPageEnabled=false` +
-      `&config.lobby.enabled=false` +
-      `&config.startWithAudioMuted=false` +
-      `&config.disableInitialGUM=false` +
-      `&config.enableWelcomePage=false` +
-      `&userInfo.displayName=${encodeURIComponent('⭐ ' + childName)}` +
-      `&userInfo.email=child-${childName.toLowerCase().replace(/\s+/g, '')}-${sessionCode}@leapboard.app`
-    : null;
+  const jitsiRoomName = sessionCode ? `leapboard${sessionCode.toLowerCase()}` : null;
+  const jitsiDisplayName = childName ? `⭐ ${childName}` : '';
+  const jitsiEmail = childName && sessionCode
+    ? `child-${childName.toLowerCase().replace(/\s+/g, '')}-${sessionCode}@leapboard.app`
+    : '';
 
   // ── Join handler ───────────────────────────────────────────────────────────
   const handleJoin = useCallback(({ name, code }) => {
@@ -222,19 +217,15 @@ export default function ChildRoom() {
 
           {/* Video area */}
           <div className="flex-1 relative overflow-hidden">
-            {jitsiUrl ? (
-              <iframe
-                src={jitsiUrl}
+            {jitsiRoomName ? (
+              <JitsiEmbed
+                roomName={jitsiRoomName}
+                displayName={jitsiDisplayName}
+                email={jitsiEmail}
                 className="w-full h-full"
-                allow="camera; microphone; display-capture; fullscreen"
-                style={{ border: 'none', minHeight: 'calc(100vh - 56px)' }}
-                title="Class Room"
+                style={{ minHeight: 'calc(100vh - 56px)' }}
               />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500">
-                Loading...
-              </div>
-            )}
+            ) : null}
 
             {/* Overlay Engine — sits on top of iframe */}
             <OverlayEngine socket={socket} childName={childName} />

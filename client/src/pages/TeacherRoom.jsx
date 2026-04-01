@@ -6,6 +6,7 @@ import TriggerPanel from '../components/dashboard/TriggerPanel';
 import AlertLog from '../components/dashboard/AlertLog';
 import JoinModal from '../components/common/JoinModal';
 import Leaderboard from '../components/dashboard/Leaderboard';
+import JitsiEmbed from '../components/common/JitsiEmbed';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:4000';
 
@@ -172,16 +173,9 @@ export default function TeacherRoom() {
     if (panel === 'alerts') setNewAlertCount(0);
   };
 
-  const jitsiUrl = sessionCode
-    ? `https://meet.jit.si/leapboard${sessionCode.toLowerCase()}` +
-      `#config.prejoinPageEnabled=false` +
-      `&config.lobby.enabled=false` +
-      `&config.startWithAudioMuted=false` +
-      `&config.disableInitialGUM=false` +
-      `&config.enableWelcomePage=false` +
-      `&userInfo.displayName=${encodeURIComponent('🎓 ' + teacherName)}` +
-      `&userInfo.email=teacher-${sessionCode}@leapboard.app`
-    : null;
+  const jitsiRoomName = sessionCode ? `leapboard${sessionCode.toLowerCase()}` : null;
+  const jitsiDisplayName = teacherName ? `🎓 ${teacherName}` : '';
+  const jitsiEmail = sessionCode ? `teacher-${sessionCode}@leapboard.app` : '';
 
   const copyCode = () => {
     navigator.clipboard.writeText(sessionCode).catch(() => {});
@@ -267,15 +261,15 @@ export default function TeacherRoom() {
           <div className="flex-1 flex overflow-hidden">
             {/* Video area — left */}
             <div className="flex-1 relative overflow-hidden">
-              {jitsiUrl && (
-                <iframe
-                  src={jitsiUrl}
+              {jitsiRoomName ? (
+                <JitsiEmbed
+                  roomName={jitsiRoomName}
+                  displayName={jitsiDisplayName}
+                  email={jitsiEmail}
                   className="w-full h-full"
-                  allow="camera; microphone; display-capture; fullscreen"
-                  style={{ border: 'none', minHeight: 'calc(100vh - 52px)' }}
-                  title="Teacher Classroom"
+                  style={{ minHeight: 'calc(100vh - 52px)' }}
                 />
-              )}
+              ) : null}
             </div>
 
             {/* Dashboard sidebar — right */}

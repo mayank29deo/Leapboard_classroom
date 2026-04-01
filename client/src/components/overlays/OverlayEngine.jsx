@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { playOverlaySound, stopOverlaySound, playStarSound } from '../../../hooks/useJingle';
+import { playOverlaySound, stopOverlaySound, playStarSound } from '../../hooks/useJingle';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const rand = (a, b) => Math.random() * (b - a) + a;
