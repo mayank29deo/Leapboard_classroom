@@ -88,19 +88,46 @@ function speakRhyme(text) {
 // ── Public API ────────────────────────────────────────────────────────────────
 let sharedAudioCtx = null;
 
-export function playOverlaySound(overlayType) {
+// Modes: 'silent' | 'jingle' | 'rhyme' | 'full'
+// Weights: silent 25%, jingle-only 25%, rhyme-only 25%, full 25%
+const MODES = ['silent', 'jingle', 'rhyme', 'full'];
+
+export function playOverlaySound(overlayType, forceMode = null) {
+  const mode = forceMode || MODES[Math.floor(Math.random() * MODES.length)];
+  if (mode === 'silent') return;
+
   try {
     if (!sharedAudioCtx) {
       sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    if (sharedAudioCtx.state === 'suspended') {
-      sharedAudioCtx.resume();
+    if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+
+    if (mode === 'jingle' || mode === 'full') {
+      playJingle(sharedAudioCtx, overlayType);
     }
-    playJingle(sharedAudioCtx, overlayType);
-    speakRhyme(RHYMES[overlayType] || RHYMES.balloons);
+    if (mode === 'rhyme' || mode === 'full') {
+      // If full mode, delay rhyme slightly so jingle starts first
+      const delay = mode === 'full' ? 1000 : 300;
+      setTimeout(() => speakRhyme(RHYMES[overlayType] || RHYMES.balloons), delay);
+    }
   } catch (e) {
     // Audio not available — silently skip
   }
+}
+
+// Always plays jingle + rhyme (used for star awards — special moment)
+export function playStarSound(childName) {
+  try {
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+    playJingle(sharedAudioCtx, 'stars');
+    const msg = childName
+      ? `${childName}, you just earned a star! Brilliant work!`
+      : `You just earned a star! Brilliant work! ⭐`;
+    setTimeout(() => speakRhyme(msg), 900);
+  } catch (e) {}
 }
 
 export function stopOverlaySound() {

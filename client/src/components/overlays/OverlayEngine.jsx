@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { playOverlaySound, stopOverlaySound } from '../../../hooks/useJingle';
+import { playOverlaySound, stopOverlaySound, playStarSound } from '../../../hooks/useJingle';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const rand = (a, b) => Math.random() * (b - a) + a;
@@ -449,39 +449,62 @@ const OVERLAY_MAP = {
   energy_blast: StarOverlay,
 };
 
-export default function OverlayEngine({ socket }) {
-  const [activeOverlay, setActiveOverlay] = useState(null);
-  const [bravePoints, setBravePoints]     = useState(0);
-  const [stars, setStars]                 = useState(0);
-  const [braveToast, setBraveToast]       = useState(false);
-  const [starToast, setStarToast]         = useState(false);
+export default function OverlayEngine({ socket, childName }) {
+  const [activeOverlay, setActiveOverlay]   = useState(null);
+  const [overlayExtra, setOverlayExtra]     = useState(null); // extra data passed to overlay
+  const [bravePoints, setBravePoints]       = useState(0);
+  const [stars, setStars]                   = useState(0);
+  const [braveToast, setBraveToast]         = useState(false);
+  const [starToast, setStarToast]           = useState(false);
+  const [starToastCount, setStarToastCount] = useState(0);
 
   const dismissOverlay = useCallback(() => {
     stopOverlaySound();
     setActiveOverlay(null);
+    setOverlayExtra(null);
   }, []);
 
   useEffect(() => {
     if (!socket) return;
 
-    const onOverlay = ({ type }) => {
+    // Regular overlay (distress auto / teacher manual / broadcast)
+    const onOverlay = ({ type, initiator }) => {
       const overlayType = type || 'balloons';
       setActiveOverlay(overlayType);
-      playOverlaySound(overlayType);
+      setOverlayExtra({ initiator });
+      // broadcast and manual always play full sound; auto is randomised
+      const mode = initiator === 'auto' ? null : 'full';
+      playOverlaySound(overlayType, mode);
     };
-    const onBravePoint   = ({ total }) => { setBravePoints(total); setBraveToast(true); setTimeout(() => setBraveToast(false), 3000); };
-    const onStar         = ({ total }) => { setStars(total); setStarToast(true); setTimeout(() => setStarToast(false), 2500); };
+
+    // Star award — always plays personalized jingle + name callout
+    const onStar = ({ total }) => {
+      setStars(total);
+      setStarToastCount(total);
+      setStarToast(true);
+      setTimeout(() => setStarToast(false), 4000);
+      // Fire star overlay on child's screen
+      setActiveOverlay('stars');
+      setOverlayExtra({ initiator: 'star_award' });
+      playStarSound(childName);
+    };
+
+    const onBravePoint = ({ total }) => {
+      setBravePoints(total);
+      setBraveToast(true);
+      setTimeout(() => setBraveToast(false), 3500);
+    };
 
     socket.on('trigger:overlay', onOverlay);
+    socket.on('award:star',      onStar);
     socket.on('award:brave_point', onBravePoint);
-    socket.on('award:star', onStar);
 
     return () => {
       socket.off('trigger:overlay', onOverlay);
+      socket.off('award:star',      onStar);
       socket.off('award:brave_point', onBravePoint);
-      socket.off('award:star', onStar);
     };
-  }, [socket]);
+  }, [socket, childName]);
 
   const OverlayComponent = activeOverlay ? (OVERLAY_MAP[activeOverlay] || BalloonOverlay) : null;
 
@@ -524,13 +547,21 @@ export default function OverlayEngine({ socket }) {
       <AnimatePresence>
         {starToast && (
           <motion.div
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-amber-500 text-white rounded-2xl px-8 py-5 shadow-2xl font-display font-bold pointer-events-none text-center"
-            style={{ fontSize: 'clamp(1.1rem, 3.5vw, 1.6rem)' }}
-            initial={{ y: 60, opacity: 0, scale: 0.8 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 60, opacity: 0, scale: 0.8 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 text-white rounded-3xl px-10 py-6 shadow-2xl font-display font-black pointer-events-none text-center"
+            style={{
+              fontSize: 'clamp(1.3rem, 4vw, 2rem)',
+              background: 'linear-gradient(135deg, #F59E0B, #FF922B)',
+              boxShadow: '0 12px 40px rgba(245,158,11,0.5)',
+            }}
+            initial={{ y: 80, opacity: 0, scale: 0.6 }}
+            animate={{ y: 0, opacity: 1, scale: [0.6, 1.15, 1] }}
+            exit={{ y: 80, opacity: 0, scale: 0.8 }}
           >
-            ⭐ Star earned! Total: {stars}
+            <div style={{ fontSize: 'clamp(2rem, 6vw, 3.5rem)' }}>⭐</div>
+            <div>{childName ? `${childName}, ` : ''}You earned a Star!</div>
+            <div style={{ fontSize: 'clamp(0.9rem, 2.5vw, 1.2rem)', opacity: 0.85, fontWeight: 600, marginTop: 4 }}>
+              Total stars: {starToastCount} ⭐
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

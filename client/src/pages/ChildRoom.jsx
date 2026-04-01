@@ -237,7 +237,7 @@ export default function ChildRoom() {
             )}
 
             {/* Overlay Engine — sits on top of iframe */}
-            <OverlayEngine socket={socket} />
+            <OverlayEngine socket={socket} childName={childName} />
 
             {/* Mascot corner — always present */}
             <motion.div
